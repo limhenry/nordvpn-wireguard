@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Extract NordVPN WireGuard Config with macOS</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 16px;
+      background-color: #eee;
+      line-height: 1.5em;
+    }
+
+    .main {
+      width: 100%;
+      max-width: 860px;
+      background-color: #fff;
+      padding: 16px;
+      margin: auto;
+      border-radius: 4px;
+
+      h1 {
+        font-size: 1.75em;
+        text-align: center;
+        margin-bottom: 0.5em;
+      }
+
+      h4 {
+        margin: 0 0 2em;
+        text-align: center;
+        font-weight: 400;
+      }
+
+      ol {
+        display: grid;
+        grid-gap: 8px;
+      }
+
+      code {
+        background-color: #eee;
+        font-size: 1em;
+        padding: 2px 4px;
+      }
+
+      textarea {
+        margin-top: 1em;
+        width: 100%;
+        line-height: 1.25em;
+      }
+
+      button {
+        display: block;
+        margin: 1em auto;
+        padding: 8px 16px;
+        cursor: pointer;
+      }
+    }
+
+    footer {
+      margin: 4em 0 1em;
+      font-size: 0.8em;
+      text-align: center;
+      color: #616161;
+    }
+  </style>
+</head>
+<body>
+  <div class="main">
+    <h1>Extract NordVPN WireGuard Config with macOS</h1>
+    <h4>Credit: <a href="https://www.reddit.com/r/WireGuard/comments/xqz102/extract_nordvpn_wireguard_config_with_macos_no/" target="_blank">@networkers-comp</a></h4>
+    <ol>
+      <li>Download <a href="https://apps.apple.com/us/app/nordvpn-vpn-fast-secure/id905953485" target="_blank">NordVPN's macOS client from the App Store</a>, log in, and make sure the <a href="https://support.nordvpn.com/hc/en-us/articles/19925285940497-How-can-I-use-NordLynx-in-the-NordVPN-app-for-macOS" target="_blank">VPN protocol is set to 'Nordlynx' in the NordVPN client preferences</a>.</li>
+      <li>Connect to your server of choice or auto-connect if you have no preference. Remember that a WireGuard config only has info for one server; you don't get the fancy auto-connection or server list that the NordVPN client offers.</li>
+      <li>Open Keychain Access in the <code>/Applications/Utilities</code> folder. In the search box, type in 'nordvpn'. Double-click on the entry for 'NordVPN Configuration', ensuring that the 'Date Modified' time is the same as when you just connected to a server.</li>
+      <li>Check the 'Show Password' box and enter your macOS (not NordVPN) password. You may have to do this twice.</li>
+      <li>Select and copy the entire value in the password field, much of which is hidden, and paste into the text field below:</li>
+    </ol>
+
+    <form>
+      <textarea id="nord-vpn-config-password" rows="11" required></textarea>
+      <button type="submit">Generate WireGuard Configuration</button>
+    </form>
+
+    <footer>Created by <a href="https://www.twitter.com/henrylim96" target="_blank">Henry Lim</a> &middot; <a href="https://github.com/limhenry/nordvpn-wireguard" target="_blank">Source Code</a></footer>
+  </div>
+
+  <script>
+    const textarea = document.querySelector('#nord-vpn-config-password');
+    textarea.placeholder = `{"mesh_ip_addresses":[],"private_key":"xxxxxxxxxxxxxxxxxxxxxx","exit_peer":{"public_key":"xxxxxxxxxxxxxxxxxxxxxx","endpoint":"xx.xx.xxx.xx:xxxxx"},"dns_servers":["xxx.xx.xx.xxx","xxx.xx.xx.xxx"]}`;
+
+    const form = document.querySelector('form');
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+
+      let config = {};;
+      
+      try {
+        config = JSON.parse(textarea.value);
+      } catch (e) {
+        window.alert('Error: Invalid JSON');
+        return;
+      }
+
+      if (!config.private_key) return window.alert('Error: Missing Private Key');
+      if (!config.exit_peer?.public_key) return window.alert('Error: Missing Public Key');
+      if (!config.exit_peer?.endpoint) return window.alert('Error: Missing Endpoint');
+
+      const interfaceConfig = `[Interface]\nPrivateKey = ${config.private_key}\nAddress = 10.5.0.2/16\nDNS = 9.9.9.9`;
+      const peerConfig = `[Peer]\nPublicKey = ${config.exit_peer.public_key}\nAllowedIPs = 0.0.0.0/0, ::/0\nEndpoint = ${config.exit_peer.endpoint}\nPersistentKeepalive = 25`;
+      const wireGuardConfig = `${interfaceConfig}\n\n${peerConfig}`;
+
+      console.log(wireGuardConfig);
+      textarea.value = wireGuardConfig;
+
+      const configFile = new Blob([wireGuardConfig], {type: 'text/plain'});
+
+      const configDownloadButton = document.createElement('a');
+      configDownloadButton.setAttribute('href', window.URL.createObjectURL(configFile));
+      configDownloadButton.setAttribute('download', 'nordvpn.conf');
+      configDownloadButton.click();
+    }); 
+  </script>
+</body>
+</html>
